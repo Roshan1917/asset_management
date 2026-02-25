@@ -1,0 +1,575 @@
+{
+  "name": "Build Master Image Collection Inventory from Google Drive",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 2
+            }
+          ]
+        }
+      },
+      "id": "6cf48ebd-239b-4cdb-a191-6ab334f9f1dc",
+      "name": "Schedule Discovery",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        256,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "query",
+        "queryString": "mimeType contains 'image/'",
+        "returnAll": true,
+        "filter": {
+          "folderId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "1vrNekG1Qr56NK1QjgFO2uocib1KKbnxU"
+          },
+          "whatToSearch": "files"
+        },
+        "options": {
+          "fields": [
+            "id",
+            "name",
+            "mimeType",
+            "webViewLink",
+            "size"
+          ]
+        }
+      },
+      "id": "129e4cf8-e3e5-44c8-ba0c-96d0a5d08905",
+      "name": "List Root Images",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        928,
+        304
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "fnBAiA0cY2SN15Ct",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "query",
+        "queryString": "mimeType = 'application/vnd.google-apps.folder'",
+        "returnAll": true,
+        "filter": {
+          "folderId": {
+            "__rl": true,
+            "mode": "id",
+            "value": "1vrNekG1Qr56NK1QjgFO2uocib1KKbnxU"
+          }
+        },
+        "options": {
+          "fields": [
+            "id",
+            "name"
+          ]
+        }
+      },
+      "id": "f0104282-3ae6-4390-b42d-a2dfd4cb67e8",
+      "name": "List All Subfolders",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        480,
+        496
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "fnBAiA0cY2SN15Ct",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "query",
+        "queryString": "mimeType contains 'image/'",
+        "returnAll": true,
+        "filter": {
+          "folderId": {
+            "__rl": true,
+            "value": "={{ $json.id }}",
+            "mode": "id"
+          }
+        },
+        "options": {
+          "fields": [
+            "id",
+            "name",
+            "mimeType",
+            "webViewLink",
+            "size",
+            "parents"
+          ]
+        }
+      },
+      "id": "13422d83-c08c-44ae-ae0f-1f402245dd60",
+      "name": "List Subfolder Images",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        928,
+        496
+      ],
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "fnBAiA0cY2SN15Ct",
+          "name": "Google Drive account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "folder_order",
+              "value": 0,
+              "type": "number"
+            },
+            {
+              "id": "id-2",
+              "name": "folder_id",
+              "value": "1vrNekG1Qr56NK1QjgFO2uocib1KKbnxU",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "image_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "id-4",
+              "name": "file_name",
+              "value": "={{ $json.name }}",
+              "type": "string"
+            },
+            {
+              "id": "id-5",
+              "name": "image_url",
+              "value": "={{ $json.webViewLink }}",
+              "type": "string"
+            },
+            {
+              "id": "id-6",
+              "name": "mime_type",
+              "value": "={{ $json.mimeType }}",
+              "type": "string"
+            },
+            {
+              "id": "id-7",
+              "name": "file_size_bytes",
+              "value": "={{ $json.size }}",
+              "type": "number"
+            },
+            {
+              "id": "id-8",
+              "name": "source_path",
+              "value": "root",
+              "type": "string"
+            },
+            {
+              "id": "id-9",
+              "name": "discovered_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "623a48dd-a39e-4692-a0aa-63fe941d81e9",
+      "name": "Format Root Images",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1152,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "folder_order",
+              "value": "={{ $('Add Folder Order').item.json.folder_order }}",
+              "type": "number"
+            },
+            {
+              "id": "id-2",
+              "name": "folder_id",
+              "value": "={{ $('Add Folder Order').item.json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "id-3",
+              "name": "image_id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "id-4",
+              "name": "file_name",
+              "value": "={{ $json.name }}",
+              "type": "string"
+            },
+            {
+              "id": "id-5",
+              "name": "image_url",
+              "value": "={{ $json.webViewLink }}",
+              "type": "string"
+            },
+            {
+              "id": "id-6",
+              "name": "mime_type",
+              "value": "={{ $json.mimeType }}",
+              "type": "string"
+            },
+            {
+              "id": "id-7",
+              "name": "file_size_bytes",
+              "value": "={{ $json.size }}",
+              "type": "number"
+            },
+            {
+              "id": "id-8",
+              "name": "source_path",
+              "value": "={{ $('Add Folder Order').item.json.name }}",
+              "type": "string"
+            },
+            {
+              "id": "id-9",
+              "name": "discovered_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "95eae8f3-3c69-446a-9646-2c81ac2d0a33",
+      "name": "Format Subfolder Images",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1152,
+        496
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "81e4c836-d0fb-4f26-9f66-16260ca1097c",
+      "name": "Combine All Images",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1376,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1bSdv2uqqvOqqg8zTGQAjHC4b6P4SS2chNt8iltit6t4",
+          "mode": "list",
+          "cachedResultName": "Classification",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1bSdv2uqqvOqqg8zTGQAjHC4b6P4SS2chNt8iltit6t4/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Discovery",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "folder_order",
+              "displayName": "folder_order",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "folder_id",
+              "displayName": "folder_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "image_id",
+              "displayName": "image_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "file_name",
+              "displayName": "file_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "image_url",
+              "displayName": "image_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "mime_type",
+              "displayName": "mime_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "file_size_bytes",
+              "displayName": "file_size_bytes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "source_path",
+              "displayName": "source_path",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "discovered_at",
+              "displayName": "discovered_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "c37a2cc6-2aa6-475c-9626-7cabc86b838e",
+      "name": "Write to Discovery Sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1600,
+        400
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "MTjlWSwUVhHbtnLd",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nreturn items.map((item, index) => ({\n  json: {\n    ...item.json,\n    folder_order: index\n  }\n}));"
+      },
+      "id": "e512d676-ba1c-45f1-9777-af87a259252c",
+      "name": "Add Folder Order",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        704,
+        688
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "dd322d1b-a803-4516-97d8-8d86a5e7080b",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        704,
+        464
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Discovery": {
+      "main": [
+        [
+          {
+            "node": "List Root Images",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "List All Subfolders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List All Subfolders": {
+      "main": [
+        [
+          {
+            "node": "Add Folder Order",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Root Images": {
+      "main": [
+        [
+          {
+            "node": "Format Root Images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Subfolder Images": {
+      "main": [
+        [
+          {
+            "node": "Format Subfolder Images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Root Images": {
+      "main": [
+        [
+          {
+            "node": "Combine All Images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Subfolder Images": {
+      "main": [
+        [
+          {
+            "node": "Combine All Images",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Combine All Images": {
+      "main": [
+        [
+          {
+            "node": "Write to Discovery Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write to Discovery Sheet": {
+      "main": [
+        []
+      ]
+    },
+    "Add Folder Order": {
+      "main": [
+        [
+          {
+            "node": "List Subfolder Images",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "List Root Images",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "List All Subfolders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "681662ff-0b4f-4d2d-a5aa-8cf4db159285",
+  "meta": {
+    "instanceId": "200b572e3d797d147365cccbcb92ecf69b528d047052475e9aa6844c5f31d045"
+  },
+  "id": "spv6YyM1TuUAOmJW",
+  "tags": []
+}

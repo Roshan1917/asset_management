@@ -1,0 +1,19 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+
+# Env / secrets (do not commit)
+.env
+.env.*
+*.pem
+*.p12
+*.key
+credentials*.json
+
+# n8n local state (if exported later)
+.n8n/
+
