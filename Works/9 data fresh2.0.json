@@ -1,0 +1,960 @@
+{
+  "name": "9 data fresh2.0",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "97147ed7-6b56-402c-a1c8-61b8fed53092",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -3632,
+        1696
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"spreadsheetId\": \"1bSdv2uqqvOqqg8zTGQAjHC4b6P4SS2chNt8iltit6t4\",\n  \"sheetNameDiscovery\": \"Discovery\",\n  \"sheetNameLevel1\": \"Level1\",\n  \"batchSize\": 1,\n  \"startRow\": 0,\n  \"endRow\": 0,\n  \"forceReprocess\": false,\n  \"maxFileSizeBytes\": 15728640,\n  \"maxBase64Bytes\": 19922944\n}",
+        "options": {}
+      },
+      "id": "d34c3b1f-f293-40d2-a64f-f7c912ac250f",
+      "name": "Set Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -3408,
+        1696
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{$json.spreadsheetId}}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{$json.sheetNameDiscovery}}"
+        },
+        "options": {}
+      },
+      "id": "cd338b3d-3c98-4ed0-b51a-19f5a07a23e5",
+      "name": "Sheets - Read Discovery",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -3184,
+        1568
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "MTjlWSwUVhHbtnLd",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{$json.spreadsheetId}}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{$json.sheetNameLevel1}}"
+        },
+        "options": {}
+      },
+      "id": "6376aaa1-4b58-4edd-b6e3-d65e3058f590",
+      "name": "Sheets - Read Level1 (Existing)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -3184,
+        1808
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "MTjlWSwUVhHbtnLd",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "a6e20584-13e8-4bec-b892-4b260bca64f9",
+      "name": "Merge - Sync Inputs",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        -2960,
+        1696
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const config = $node['Set Config'].json;\nconst startRow = config.startRow || 0;\nconst endRow = config.endRow || 0;\nconst forceReprocess = config.forceReprocess || false;\nconst maxFileSize = config.maxFileSizeBytes || 15728640;\n\nconst supportedTypes = new Set(['image/jpeg', 'image/png']);\n\nconst discovery = $items('Sheets - Read Discovery', 0, 0).map((item, index) => ({\n  ...item.json,\n  row_number: index + 1\n}));\nconst existing = $items('Sheets - Read Level1 (Existing)', 0, 0).map(i => i.json);\nconst completedIds = new Set(existing.map(r => String(r.image_id || '')).filter(Boolean));\n\nlet filtered = discovery;\n\nif (startRow > 0) {\n  const start = startRow - 1;\n  const end = endRow > 0 ? endRow : filtered.length;\n  filtered = filtered.slice(start, end);\n}\n\nif (!forceReprocess) {\n  filtered = filtered.filter(r => r.image_id && !completedIds.has(String(r.image_id)));\n} else {\n  filtered = filtered.filter(r => r.image_id);\n}\n\nfiltered = filtered.filter(r => supportedTypes.has(r.mime_type));\nfiltered = filtered.filter(r => (Number(r.file_size_bytes) || 0) <= maxFileSize);\n\nreturn filtered.map(r => ({ json: { ...r } }));"
+      },
+      "id": "5417b188-6ad2-45f4-b46b-09b26017ac9d",
+      "name": "Build L1 Queue (Skip Existing image_id)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2736,
+        1696
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "batchSize": "={{$node['Set Config'].json['batchSize']}}",
+        "options": {}
+      },
+      "id": "d5829c2e-3087-4dc7-bcd2-c69044545c63",
+      "name": "Split In Batches (L1)",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -2512,
+        1696
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "download",
+        "fileId": "={{$json.image_id}}",
+        "options": {}
+      },
+      "id": "64d791c2-465c-468c-9186-6773d36df50e",
+      "name": "Drive - Download Image",
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        -2272,
+        1664
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "fnBAiA0cY2SN15Ct",
+          "name": "Google Drive account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst config = $node['Set Config'].json;\nconst maxFileSize = config.maxFileSizeBytes || 15728640;\nconst results = [];\n\nfor (let i = 0; i < items.length; i++) {\n  let actualSize = 0;\n  if (items[i].binary && items[i].binary.data) {\n    const buffer = await this.helpers.getBinaryDataBuffer(i, 'data');\n    actualSize = buffer.length;\n  }\n  results.push({\n    json: {\n      ...items[i].json,\n      _actualSizeBytes: actualSize,\n      _maxFileSizeBytes: maxFileSize\n    },\n    binary: items[i].binary\n  });\n}\n\nreturn results;"
+      },
+      "id": "a1a1a1a1-b2b2-4c3c-d4d4-e5e5e5e5e5e5",
+      "name": "Check Actual File Size",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2080,
+        1664
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": ""
+          },
+          "conditions": [
+            {
+              "id": "cond-size-check",
+              "leftValue": "={{ $json._actualSizeBytes }}",
+              "rightValue": "={{ $json._maxFileSizeBytes }}",
+              "operator": {
+                "type": "number",
+                "operation": "lte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b2b2b2b2-c3c3-4d4d-e5e5-f6f6f6f6f6f6",
+      "name": "Is Under Size Limit?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1888,
+        1664
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst config = $node['Set Config'].json;\nconst maxBase64Bytes = config.maxBase64Bytes || 19922944;\nconst results = [];\n\nfor (let i = 0; i < items.length; i++) {\n  let base64 = '';\n  let mimeType = 'image/jpeg';\n  let base64SizeBytes = 0;\n\n  if (items[i].binary && items[i].binary.data) {\n    const buffer = await this.helpers.getBinaryDataBuffer(i, 'data');\n    base64 = buffer.toString('base64');\n    mimeType = items[i].binary.data.mimeType || 'image/jpeg';\n    base64SizeBytes = base64.length;\n  }\n\n  results.push({\n    json: {\n      ...items[i].json,\n      _base64: base64,\n      _mimeType: mimeType,\n      _base64SizeBytes: base64SizeBytes,\n      _maxBase64Bytes: maxBase64Bytes\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "d1d1d1d1-e2e2-4f3f-a4a4-b5b5b5b5b5b5",
+      "name": "Convert to Base64",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1696,
+        1664
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": ""
+          },
+          "conditions": [
+            {
+              "id": "cond-base64-check",
+              "leftValue": "={{ $json._base64SizeBytes }}",
+              "rightValue": "={{ $json._maxBase64Bytes }}",
+              "operator": {
+                "type": "number",
+                "operation": "lte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "e2e2e2e2-f3f3-4a4a-b5b5-c6c6c6c6c6c6",
+      "name": "Is Base64 Under Limit?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1504,
+        1664
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst results = [];\n\nfor (let i = 0; i < items.length; i++) {\n  const src = items[i].json;\n  const base64 = src._base64 || '';\n  const mimeType = src._mimeType || 'image/jpeg';\n\n  const { _base64, _mimeType, _base64SizeBytes, _maxBase64Bytes, _actualSizeBytes, _maxFileSizeBytes, ...metadata } = src;\n\n  const imageUrl = base64 ? 'data:' + mimeType + ';base64,' + base64 : '';\n\n  const userContent = [\n    {\n      type: 'text',\n      text:\n        'Analyze the provided image and generate JSON with exactly these keys:\\n' +\n        '- heading: short, professional title (3\\u20138 words)\\n' +\n        '- description: 1 sentence, max 25 words, neutral marketing tone\\n' +\n        '- general_classification: a broad category name (keep it concise; you may create/choose an appropriate broad bucket based on the image)\\n' +\n        '- sub_classification: a more specific category within the general_classification (e.g. if general is \\\"Product Photography\\\", sub could be \\\"Flat Lay\\\" or \\\"Lifestyle Shot\\\")\\n' +\n        '- tags: comma-separated list of 5\\u201310 relevant keywords for search (e.g. \\\"outdoor, sunset, corporate, team, building\\\")\\n' +\n        '- color_classification: dominant color palette or mood (e.g. \\\"Warm Tones\\\", \\\"Cool Blue\\\", \\\"Monochrome\\\", \\\"Vibrant Multi-color\\\", \\\"Earth Tones\\\")\\n\\n' +\n        'Filename: ' + (metadata.file_name || '') + '\\n\\n' +\n        'Rules:\\n' +\n        '- Keep wording consistent and business-friendly.\\n' +\n        '- If the image is abstract/unclear, use a reasonable broad classification and keep description generic.\\n' +\n        '- Output must be valid JSON.'\n    }\n  ];\n  if (imageUrl) {\n    userContent.push({ type: 'image_url', image_url: { url: imageUrl } });\n  }\n\n  const payload = {\n    temperature: 0.1,\n    response_format: { type: 'json_object' },\n    messages: [\n      {\n        role: 'system',\n        content:\n          'You are a visual asset cataloging assistant for a marketing team. ' +\n          'You will be given an image (and its filename). ' +\n          'Your job is to create professional, searchable metadata. ' +\n          'Return STRICT JSON ONLY (no markdown, no commentary). ' +\n          'Do not include extra keys beyond what is requested. ' +\n          'Do not guess sensitive attributes about people (identity, health, etc.).'\n      },\n      {\n        role: 'user',\n        content: userContent\n      }\n    ]\n  };\n\n  results.push({\n    json: {\n      ...metadata,\n      payload\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "77619d0d-937b-48f3-b71f-c826ba7689ab",
+      "name": "Prepare L1 Azure Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1312,
+        1696
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anand-m9ky8ewh-eastus2.openai.azure.com/openai/deployments/gpt-4.1-nano/chat/completions?api-version=2025-01-01-preview",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json.payload}}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "5a8505c3-c7f0-4157-90bf-0a8857a2c5f5",
+      "name": "Azure OpenAI - gpt-4.1-nano",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1088,
+        1440
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "X0wRnt3lvcY5Saqr",
+          "name": "gpt-4.1-nano"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anand-m9ky8ewh-eastus2.openai.azure.com/openai/deployments/gpt-4o-mini/chat/completions?api-version=2025-01-01-preview",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json.payload}}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "bfaeb469-4a9b-4a1d-a115-567c959ee2c5",
+      "name": "Azure OpenAI - gpt-4o-mini",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1088,
+        1648
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "0chqGuew1tt4JnQU",
+          "name": "gpt-4o-mini"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://anand-m9ky8ewh-eastus2.openai.azure.com/openai/deployments/gpt-4.1-mini/chat/completions?api-version=2025-01-01-preview",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json.payload}}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "a7d761cc-12c6-49c2-8b0f-095a085cc070",
+      "name": "Azure OpenAI - gpt-4.1-mini",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1088,
+        1840
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "llZluBYLNwzidtJt",
+          "name": "gpt-4.1-mini"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://genai-trigent-openai.openai.azure.com/openai/deployments/gpt-4o/chat/completions?api-version=2025-01-01-preview",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json.payload}}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "ae2835b1-baf1-4b43-8219-46226e7c241d",
+      "name": "Azure OpenAI - gpt-4o",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1072,
+        2080
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "2w4mJbYznt3KK9sr",
+          "name": "gpt-4o"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const modelResponse = $json.choices?.[0]?.message?.content || '{}';\nlet parsed = {};\ntry {\n  parsed = JSON.parse(modelResponse);\n} catch {\n  parsed = { heading: null, description: null, general_classification: null, sub_classification: null, tags: null, color_classification: null };\n}\n\nconst srcNode = $('Prepare L1 Azure Payload').first();\nconst src = srcNode ? srcNode.json : {};\n\nconst usage = $json.usage || {};\nconst promptTokens = usage.prompt_tokens ?? 0;\nconst completionTokens = usage.completion_tokens ?? 0;\nconst totalTokens = usage.total_tokens ?? 0;\n\nconst model = $json.model || '';\nconst costPerMillionInput = {\n  'gpt-4.1-nano': 0.10,\n  'gpt-4o-mini-2024-07-18': 0.15,\n  'gpt-4o-mini': 0.15,\n  'gpt-4.1-mini': 0.40,\n  'gpt-4o-2024-08-06': 2.50,\n  'gpt-4o': 2.50\n};\nconst costPerMillionOutput = {\n  'gpt-4.1-nano': 0.40,\n  'gpt-4o-mini-2024-07-18': 0.60,\n  'gpt-4o-mini': 0.60,\n  'gpt-4.1-mini': 1.60,\n  'gpt-4o-2024-08-06': 10.00,\n  'gpt-4o': 10.00\n};\n\nlet inputRate = 0;\nlet outputRate = 0;\nfor (const key of Object.keys(costPerMillionInput)) {\n  if (model.includes(key)) {\n    inputRate = costPerMillionInput[key];\n    outputRate = costPerMillionOutput[key];\n    break;\n  }\n}\n\nconst estimatedCostUsd = ((promptTokens * inputRate) + (completionTokens * outputRate)) / 1000000;\n\nreturn [{\n  json: {\n    row_number: src.row_number ?? null,\n    image_id: src.image_id ?? null,\n    file_name: src.file_name ?? null,\n    heading: parsed.heading || src.file_name || null,\n    description: parsed.description ?? null,\n    general_classification: parsed.general_classification ?? null,\n    sub_classification: parsed.sub_classification ?? null,\n    tags: parsed.tags ?? null,\n    color_classification: parsed.color_classification ?? null,\n    mime_type: src.mime_type ?? null,\n    file_size_bytes: src.file_size_bytes ?? null,\n    source_path: src.source_path ?? null,\n    folder_id: src.folder_id ?? null,\n    folder_order: src.folder_order ?? null,\n    image_url: src.image_url ?? null,\n    model_used: model,\n    prompt_tokens: promptTokens,\n    completion_tokens: completionTokens,\n    total_tokens: totalTokens,\n    estimated_cost_usd: estimatedCostUsd,\n    processed_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "535a36f5-95f3-4044-a9c7-d5a92e98edd1",
+      "name": "Normalize L1 Row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -864,
+        1696
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "={{$node['Set Config'].json['spreadsheetId']}}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "={{$node['Set Config'].json['sheetNameLevel1']}}"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "image_id",
+              "displayName": "image_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "file_name",
+              "displayName": "file_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "heading",
+              "displayName": "heading",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "description",
+              "displayName": "description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "general_classification",
+              "displayName": "general_classification",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "sub_classification",
+              "displayName": "sub_classification",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "tags",
+              "displayName": "tags",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "color_classification",
+              "displayName": "color_classification",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "mime_type",
+              "displayName": "mime_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "file_size_bytes",
+              "displayName": "file_size_bytes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "source_path",
+              "displayName": "source_path",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "folder_id",
+              "displayName": "folder_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "folder_order",
+              "displayName": "folder_order",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "image_url",
+              "displayName": "image_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "model_used",
+              "displayName": "model_used",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "prompt_tokens",
+              "displayName": "prompt_tokens",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "completion_tokens",
+              "displayName": "completion_tokens",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "total_tokens",
+              "displayName": "total_tokens",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "estimated_cost_usd",
+              "displayName": "estimated_cost_usd",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "processed_at",
+              "displayName": "processed_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "a1eb6f0b-b7cd-41b4-af7f-fb7f2a737e80",
+      "name": "Sheets - Append Level1",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -624,
+        1696
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "MTjlWSwUVhHbtnLd",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "f9e1c0e5-920e-49f9-a0b2-d714722f1c44",
+      "name": "Next Batch",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -416,
+        1696
+      ],
+      "alwaysOutputData": true
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Config": {
+      "main": [
+        [
+          {
+            "node": "Sheets - Read Discovery",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Sheets - Read Level1 (Existing)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheets - Read Discovery": {
+      "main": [
+        [
+          {
+            "node": "Merge - Sync Inputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheets - Read Level1 (Existing)": {
+      "main": [
+        [
+          {
+            "node": "Merge - Sync Inputs",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge - Sync Inputs": {
+      "main": [
+        [
+          {
+            "node": "Build L1 Queue (Skip Existing image_id)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build L1 Queue (Skip Existing image_id)": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches (L1)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split In Batches (L1)": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Drive - Download Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Drive - Download Image": {
+      "main": [
+        [
+          {
+            "node": "Check Actual File Size",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Next Batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Actual File Size": {
+      "main": [
+        [
+          {
+            "node": "Is Under Size Limit?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Under Size Limit?": {
+      "main": [
+        [
+          {
+            "node": "Convert to Base64",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Next Batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to Base64": {
+      "main": [
+        [
+          {
+            "node": "Is Base64 Under Limit?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Base64 Under Limit?": {
+      "main": [
+        [
+          {
+            "node": "Prepare L1 Azure Payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Next Batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare L1 Azure Payload": {
+      "main": [
+        [
+          {
+            "node": "Azure OpenAI - gpt-4.1-nano",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Azure OpenAI - gpt-4.1-nano": {
+      "main": [
+        [
+          {
+            "node": "Normalize L1 Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Azure OpenAI - gpt-4o-mini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Azure OpenAI - gpt-4o-mini": {
+      "main": [
+        [
+          {
+            "node": "Normalize L1 Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Azure OpenAI - gpt-4.1-mini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Azure OpenAI - gpt-4.1-mini": {
+      "main": [
+        [
+          {
+            "node": "Normalize L1 Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Azure OpenAI - gpt-4o",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Azure OpenAI - gpt-4o": {
+      "main": [
+        [
+          {
+            "node": "Normalize L1 Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize L1 Row": {
+      "main": [
+        [
+          {
+            "node": "Sheets - Append Level1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheets - Append Level1": {
+      "main": [
+        [
+          {
+            "node": "Next Batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Next Batch": {
+      "main": [
+        [
+          {
+            "node": "Split In Batches (L1)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "9df-fresh-2.0",
+  "meta": {
+    "instanceId": "200b572e3d797d147365cccbcb92ecf69b528d047052475e9aa6844c5f31d045"
+  },
+  "id": "9dataFresh020",
+  "tags": []
+}
